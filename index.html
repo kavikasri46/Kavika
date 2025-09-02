@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Commission • Service • Contribution — Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;          /* slate-900 */
+      --card: #111827;        /* gray-900 */
+      --muted: #94a3b8;       /* slate-400 */
+      --text: #e5e7eb;        /* gray-200 */
+      --accent: #22c55e;      /* green-500 */
+      --accent-2: #60a5fa;    /* blue-400 */
+      --danger: #ef4444;      /* red-500 */
+      --ring: #334155;        /* slate-700 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+      background: radial-gradient(1000px 600px at 20% 0%, #0b1224 0, var(--bg) 60%);
+      color: var(--text);
+    }
+    .wrap { max-width: 980px; margin: 48px auto; padding: 0 16px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: .3px; }
+    .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+    .grid { display:grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .card { grid-column: span 12; background: linear-gradient(180deg, #0c1326, var(--card)); border: 1px solid var(--ring); border-radius: 18px; box-shadow: var(--shadow); padding: 18px; }
+
+    @media (min-width: 900px) {
+      .left { grid-column: span 7; }
+      .right { grid-column: span 5; }
+    }
+
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 12px; }
+    .field { display:flex; flex-direction:column; gap:8px; }
+    label { font-size: 14px; color: var(--muted); }
+    input[type="number"], select {
+      width:100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--ring); background: #0b1020; color: var(--text);
+      outline: none; box-shadow: inset 0 0 0 1px transparent; transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    input[type="number"]:focus, select:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(96,165,250,.15); }
+
+    .hint { font-size: 12px; color: var(--muted); }
+
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
+    button {
+      border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing:.2px;
+      background: #1f2937; color: var(--text); border: 1px solid var(--ring);
+    }
+    button.primary { background: linear-gradient(180deg, #1a283a, #0f1b2c); border-color: #1f3a5b; }
+    button.primary:hover { box-shadow: 0 10px 18px rgba(96,165,250,.15) inset, 0 5px 20px rgba(96,165,250,.15); }
+    button.accent { background: linear-gradient(180deg, #10351f, #0b2416); border-color: #164e2e; }
+    button.accent:hover { box-shadow: 0 10px 18px rgba(34,197,94,.15) inset, 0 5px 20px rgba(34,197,94,.15); }
+
+    .pill { display:inline-flex; align-items:center; gap:8px; padding: 8px 10px; border-radius: 999px; background: #0b1020; border: 1px solid var(--ring); color: var(--muted); font-size: 12px; }
+
+    .result-card { display:grid; gap: 10px; }
+    .kpi { display:flex; align-items:center; justify-content:space-between; background: #0b1020; border:1px solid var(--ring); border-radius: 14px; padding: 14px 16px; }
+    .kpi .value { font-size: 20px; font-weight: 700; }
+
+    table { width:100%; border-collapse: collapse; overflow:hidden; border-radius: 14px; border: 1px solid var(--ring); }
+    th, td { padding: 12px 14px; border-bottom: 1px dashed #1f2937; text-align:left; }
+    th { background: #0b1020; color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .2px; }
+    tbody tr:last-child td { border-bottom: none; }
+    .pos { color: var(--accent); }
+    .neg { color: var(--danger); }
+
+    .footer { margin-top: 16px; color: var(--muted); font-size: 12px; }
+    .error { color: var(--danger); font-size: 13px; margin-top: 8px; display:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Commission • Service • Contribution — Calculator</h1>
+        <div class="subtitle">Enter your base amount and set how each charge is calculated (percentage or fixed). We'll show a clean fee breakdown and the net payout.</div>
+      </div>
+      <div class="pill" id="effectivePill" title="Total fees as a percentage of base amount">Eff. Fee: <strong id="effectivePercent">0.00%</strong></div>
+    </header>
+
+    <div class="grid">
+      <section class="card left" aria-label="Inputs">
+        <div class="row">
+          <div class="field">
+            <label for="currency">Currency</label>
+            <select id="currency">
+              <option value="INR" selected>INR (₹)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="amount">Base Amount</label>
+            <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g., 10000" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="commissionRate">Commission <span class="hint">(% of amount)</span></label>
+            <input id="commissionRate" type="number" min="0" step="0.01" placeholder="e.g., 12" />
+          </div>
+          <div class="field">
+            <label for="serviceVal">Service Charge</label>
+            <div class="row" style="grid-template-columns: 1fr 120px; gap:8px; margin:0;">
+              <input id="serviceVal" type="number" min="0" step="0.01" placeholder="e.g., 5" />
+              <select id="serviceType" aria-label="Service charge type">
+                <option value="percent" selected>%</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </div>
+            <div class="hint">Choose % (of base) or Fixed amount.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="contribVal">Contribution</label>
+            <div class="row" style="grid-template-columns: 1fr 120px; gap:8px; margin:0;">
+              <input id="contribVal" type="number" min="0" step="0.01" placeholder="e.g., 2" />
+              <select id="contribType" aria-label="Contribution type">
+                <option value="percent" selected>%</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </div>
+            <div class="hint">E.g., welfare/donation/processing — % (of base) or Fixed.</div>
+          </div>
+          <div class="field">
+            <label for="taxRate">Tax on Fees <span class="hint">(optional, % applied to total fees)</span></label>
+            <input id="taxRate" type="number" min="0" step="0.01" placeholder="e.g., 18" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="primary" id="calcBtn">Calculate</button>
+          <button id="resetBtn" title="Clear values">Reset</button>
+          <button class="accent" id="saveBtn" title="Save inputs on this device">Save</button>
+          <button id="loadBtn" title="Load saved inputs">Load</button>
+        </div>
+        <div id="error" class="error" role="alert"></div>
+      </section>
+
+      <section class="card right" aria-label="Results">
+        <div class="result-card">
+          <div class="kpi">
+            <div>
+              <div class="hint">Total Fees</div>
+              <div class="value neg" id="totalFees">0</div>
+            </div>
+            <div>
+              <div class="hint">Net Payout (Amount − Fees − Tax)</div>
+              <div class="value pos" id="netPayout">0</div>
+            </div>
+          </div>
+
+          <table aria-describedby="breakdown">
+            <thead>
+              <tr><th>Item</th><th>Basis</th><th>Value</th></tr>
+            </thead>
+            <tbody id="rows">
+              <!-- Rows injected here -->
+            </tbody>
+          </table>
+
+          <div class="footer">Tip: Use <span class="pill">Save</span> to keep your last inputs; hit <span class="pill">Load</span> next time to restore them.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmt = (num, cur) => new Intl.NumberFormat(undefined, { style: 'currency', currency: cur || 'INR', maximumFractionDigits: 2 }).format(Number(num || 0));
+
+    const state = {
+      currency: 'INR',
+      amount: 0,
+      commissionRate: 0,
+      serviceVal: 0,
+      serviceType: 'percent',
+      contribVal: 0,
+      contribType: 'percent',
+      taxRate: 0,
+    };
+
+    const inputs = ['currency','amount','commissionRate','serviceVal','serviceType','contribVal','contribType','taxRate'];
+    inputs.forEach(key => {
+      const el = $(key);
+      el && el.addEventListener('input', () => {
+        state[key] = (el.type === 'number') ? parseFloat(el.value || '0') : el.value;
+        compute();
+      });
+      el && el.addEventListener('change', () => {
+        state[key] = (el.type === 'number') ? parseFloat(el.value || '0') : el.value;
+        compute();
+      });
+    });
+
+    $('calcBtn').addEventListener('click', (e) => { e.preventDefault(); compute(true); });
+    $('resetBtn').addEventListener('click', (e) => { e.preventDefault(); reset(); });
+    $('saveBtn').addEventListener('click', (e) => { e.preventDefault(); localStorage.setItem('csc-state', JSON.stringify(state)); flash('Saved!'); });
+    $('loadBtn').addEventListener('click', (e) => { e.preventDefault(); const saved = localStorage.getItem('csc-state'); if(saved){ Object.assign(state, JSON.parse(saved)); hydrate(); compute(true); flash('Loaded!'); } else { flash('Nothing saved yet'); } });
+
+    function hydrate(){
+      inputs.forEach(key => { const el = $(key); if(!el) return; el.value = (el.type === 'number') ? (state[key] ?? 0) : (state[key] ?? ''); });
+    }
+
+    function percentOf(base, pct){ return (base * (pct/100)); }
+
+    function compute(showErrors = false){
+      const errEl = $('error');
+      errEl.style.display = 'none';
+      const amount = Number($("amount").value || '0');
+      const commissionRate = Number($("commissionRate").value || '0');
+      const serviceVal = Number($("serviceVal").value || '0');
+      const serviceType = $("serviceType").value;
+      const contribVal = Number($("contribVal").value || '0');
+      const contribType = $("contribType").value;
+      const taxRate = Number($("taxRate").value || '0');
+      const currency = $("currency").value || 'INR';
+
+      // validation
+      if(showErrors){
+        if(amount <= 0){ return showError('Please enter a base amount greater than 0.'); }
+        for (const n of [commissionRate, serviceVal, contribVal, taxRate]){
+          if(isNaN(n) || n < 0){ return showError('Rates/values cannot be negative or empty.'); }
+        }
+        if(commissionRate > 100){ return showError('Commission rate looks too high (>100%).'); }
+        if(serviceType==='percent' && serviceVal > 100){ return showError('Service charge % cannot exceed 100%.'); }
+        if(contribType==='percent' && contribVal > 100){ return showError('Contribution % cannot exceed 100%.'); }
+      }
+
+      // calculations
+      const commission = percentOf(amount, commissionRate);
+      const service = serviceType === 'percent' ? percentOf(amount, serviceVal) : serviceVal;
+      const contribution = contribType === 'percent' ? percentOf(amount, contribVal) : contribVal;
+      const feesTotal = commission + service + contribution;
+      const taxOnFees = percentOf(feesTotal, taxRate);
+      const netPayout = amount - feesTotal - taxOnFees;
+      const effPct = amount > 0 ? ((feesTotal + taxOnFees)/amount)*100 : 0;
+
+      // UI updates
+      $('totalFees').textContent = fmt(feesTotal + taxOnFees, currency);
+      $('netPayout').textContent = fmt(netPayout, currency);
+      $('effectivePercent').textContent = effPct.toFixed(2) + '%';
+
+      const rows = [
+        { name: 'Base Amount', basis: '—', val: amount },
+        { name: 'Commission', basis: commissionRate.toFixed(2) + '% of Base', val: commission },
+        { name: 'Service Charge', basis: serviceType==='percent' ? `${serviceVal.toFixed(2)}% of Base` : 'Fixed', val: service },
+        { name: 'Contribution', basis: contribType==='percent' ? `${contribVal.toFixed(2)}% of Base` : 'Fixed', val: contribution },
+        { name: 'Tax on Fees', basis: taxRate.toFixed(2) + '% of (Commission + Service + Contribution)', val: taxOnFees },
+        { name: 'Total Fees', basis: 'Commission + Service + Contribution + Tax', val: feesTotal + taxOnFees },
+        { name: 'Net Payout', basis: 'Amount − Total Fees', val: netPayout },
+      ];
+
+      const tbody = $('rows');
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.name}</td>
+          <td class="hint">${r.basis}</td>
+          <td><strong>${fmt(r.val, currency)}</strong></td>
+        </tr>
+      `).join('');
+
+      // keep state
+      Object.assign(state, { currency, amount, commissionRate, serviceVal, serviceType, contribVal, contribType, taxRate });
+    }
+
+    function showError(msg){ const el = $('error'); el.textContent = msg; el.style.display = 'block'; return false; }
+
+    function reset(){
+      Object.assign(state, { currency:'INR', amount:0, commissionRate:0, serviceVal:0, serviceType:'percent', contribVal:0, contribType:'percent', taxRate:0 });
+      hydrate();
+      compute();
+      flash('Reset');
+    }
+
+    function flash(text){
+      const pill = $('effectivePill'); const original = pill.textContent;
+      pill.textContent = text; pill.style.borderColor = '#22c55e'; pill.style.color = '#eafff2';
+      setTimeout(()=>{ pill.textContent = `Eff. Fee: ${$('effectivePercent').textContent}`; pill.style.borderColor = '#334155'; pill.style.color = ''; }, 1000);
+    }
+
+    // boot
+    (function init(){ hydrate(); compute(); })();
+  </script>
+</body>
+</html>
